@@ -1,0 +1,248 @@
+#!/usr/bin/env perl
+
+use massa;
+
+use constant DIR_TRABALHO => '/tmp/work';
+use constant URI_ESTATUTO =>
+  'http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=LEI&num=869&comp=&ano=1952&texto=consolidado#texto';
+use constant URI_REGIMENTO =>
+  'http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=RAL&num=5176&comp=&ano=1997&texto=consolidado#texto';
+use constant URI_CONSTITUICAO_MG =>
+  'http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=CON&num=1989&comp=&ano=1989&texto=consolidado#texto';
+use constant URI_CONSTITUICAO_FEDERAL =>
+  'http://www.planalto.gov.br/ccivil_03/constituicao/ConstituicaoCompilado.htm';
+use constant CONFIG_TIDY => <<'CONFIG_TIDY';
+write-back: yes
+error-file: tidy.log
+indent: auto
+wrap: 0
+output-xhtml: yes
+output-encoding: utf8
+input-encoding: utf8
+CONFIG_TIDY
+
+sub wget(@) {
+    system tsocks => wget => @_;
+}
+
+sub tidy(@) {
+    unless ( -f 'tidy.cfg' ) { open my $tcfg, '>', 'tidy.cfg'; print $tcfg CONFIG_TIDY; }
+    # se a codificação do arquivo não for latin1 (ISO-8859-1)
+    # altera o "input-encoding"
+    unshift @_, '--input-encoding', 'latin1' if qx/file $_[0]/ =~ /ISO-8859/;
+    system tidy => -config => 'tidy.cfg' => @_
+}
+
+sub convert(@) {
+    system 'ebook-convert' => @_ => '--authors' => ALMG =>
+      '--pubdate' => 2014 => '--publisher' => ALMG => '--max-levels' => 0 =>
+      '--level1-toc' => '//h:h2' => '--level2-toc' => '//h:h3' =>
+      '--level3-toc' => '//h:h4' => -v             =>
+}
+
+sub cria_diretorio_trabalho($) {
+    system rm => -vrf => $_[0];
+    mkdir $_[0];
+    chdir $_[0]
+}
+
+# roda_transformacao_no_arquivo(nome_arquivo, funcao_transformacao, outros_parametros):
+# abre o arquivo para leitura
+# chama a função de transformação com o conteúdo do arquivo em "$_"
+# abre o arquivo para escrita
+# sobrescreve com o conteúdo que está em "$_", já transformado
+
+sub roda_transformacao_no_arquivo($$@) {
+    my $file = shift;
+    my $func = shift;
+    open my $f, '<', $file;
+    local $/;
+    local $_ = <$f>;
+    $func->(@_);
+    open $f, '>', $file;
+    print $f $_
+}
+
+# processa_arquivo(funcao_transformacao, prefixo_nome_arquivo, prefixo_nome_capa, uri_arquivo, titulo):
+# busca o arquivo em uri_arquivo,
+# roda o programa "HTML tidy" para padronizar o HTML
+# usa a função passada "funcao_transformacao" para fazer outras modificações no HTML
+# passa o html gerado para o programa "ebook-convert" do calibre para gerar o EPUB e o MOBI
+
+sub processa_arquivo(&$$$$) {
+    my ( $func, $name, $cover, $uri, $title ) = @_;
+    wget -q => -O => "$name.html" => $uri;
+    tidy "$name.html";
+    roda_transformacao_no_arquivo "$name.html", $func, $title, $uri;
+    convert "$name.html", "$name.$_",
+      '--cover' => "/home/h/Cloud/Temp/ebooks-almg/$cover.png"
+      for qw[epub mobi];
+}
+
+# transformacao_html_almg_e_planalto(titulo, uri_original):
+# usa as espressões regulares abaixo para fazer os ajustes no HTML, de modo aos
+# ebooks ficarem perfeitos
+
+sub transformacao_html_almg_e_planalto($$) {
+    my ( $title, $uri ) = @_;
+
+    # caso haja "hrefs" sem "http/https", teremos que utilizar a base da URI de
+    # origem do arquivo
+    s~[^/]+$~~ for $uri;
+
+    # remove CRs
+    s~\r+~~gs;
+
+    # remove linhas em branco
+    s~\n(?:\s*\n)+~\n~gs;
+
+    # se houver sequências de "non-breakable spaces", reduz a um só
+    s~\s*(&nbsp;\s*)+~&nbsp;~g;
+
+    # deleta tags font
+    s~<(/?)font[^>]*>~~g;
+
+    # aplica o estilo "uppercase" diretamente, ao invés de deixar para o CSS
+    s~<span style="text-transform: uppercase">(.*?)</span>~\U$1\E~gs;
+
+    # deleta as tags span
+    s~<(/?)span[^>]*>~~g;
+
+    # deleta referências internas do arquivo
+    # (elas só existem no arquivo original da CF e estão todas bugadas
+    s~<a name[^>]+>([^<]*)</a>~$1~g;
+
+    # prefixa o caminho da URI de origem nos links que não têm "http/https"
+    s~<a(?= href="https?:)~<AX~g;
+    s~<a href="\K~$uri~g;
+    s~<AX(?=href)~a ~g;
+
+    # deleta formatações desnecessárias
+    s~ class="western"~~g;
+    s~ class="MsoNormal"~~g;
+    s~ align="center"\K style="text-indent: 0cm"~~g;
+    s~ align="justify"~~g;
+    s~ align="left"~~g;
+    s~ style="text-indent: 1.3cm"~~g;
+    s~ style="font-weight: 400"~~g;
+    s~ style="mso-bidi-font-style: *normal"~~g;
+    s~ style=".*\Ktext-autospace: none; ~~g;
+    s~ style="text-indent: 1cm;"~~g;
+    s~ style="text-indent: *35px"~~g;
+    s~ style="text-align: justify; text-indent: *35px"~~g;
+
+    # esta é a formatação de "caput" de artigos
+    s~ style="margin-left: 7.62cm; text-indent: 0cm"~ i0~g;
+
+    # deleta quebras de linhas desnecessárias
+    s~<p\N*?><br /></p>\n~~g;
+    s~<p>&nbsp;~<p>~g;
+
+    # preâmbulos constitucionais são headings "h2"
+    s~<p\salign="center">
+      <strong>PREÂMBULO</strong>
+      </p>
+     ~<div id="leg_txt200k">\n<h2>PREÂMBULO</h2>~x;
+
+    # substitui o cabeçalho pelo meu cabeçalho padrão
+    s~.*<div\sid="leg_txt200k">\n
+     ~<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta content="ALMG::GeraEbooks" name="generator" />
+<meta charset="UTF-8" />
+<title>$title</title>
+<style type="text/css">
+/*<![CDATA[*/
+body { font-family: Helvetica, Arial, sans-serif; font-size: 100%; text-align: justify; }
+h1, h2, h3, h4, h5, h6 { text-align: center; }
+.obs { font-size: 80%; text-align: right; margin-right: 0.15em; }
+p { margin-left: 1.5em; margin-right: 0.25em; }
+p.caput { margin-left: 0.25em; }
+/*]]>*/
+</style>
+</head>
+<body dir="ltr" xml:lang="pt-BR">
+<h1>\U$title\E</h1>
+~sx;
+
+    # substitui o final do HTML pelo meu final padrão
+    s~<p\N*?>=+</p>\n<p\N*?>(\N*?)</p>.*?</body>
+     ~<hr />\n<p obs>$1</p>\n</body>~sx;
+
+    # acha títulos, capítulos, seções, subseções e marca com os headings
+    # adequados ("h2", "h3", "h4", "h5" respectivamente)
+    1 while
+      s~<br\s/>\n?\s*<b>((Subseção|Seção)\N+)<br\s/>\n?(\N+)</b></p>
+       ~</p>\n<h$2>$1<br />&nbsp;$3</h$2>~gix;
+    1 while
+      s~<br\s/>\n?\s*((Subseção|Seção)\N+)<br\s/>\n?(\N+)</p>
+       ~</p>\n<h$2>$1<br />&nbsp;$3</h$2>~gix;
+    1 while
+      s~<br\s/>\n?\s*((CAPÍTULO|TÍTULO)\N+)<br\s/>\n?(\N+)</p>
+       ~</p>\n<h$2>\U$1\E<br />&nbsp;\U$3\E</h$2>~gix;
+    s~<p\salign="center">((Subseção|Seção)\N+)<br\s/>\n?(\N+)</p>
+     ~<h$2>$1<br />&nbsp;$3</h$2>~gix;
+    s~<p\salign="center">((CAPÍTULO|TÍTULO)\N+)<br\s/>\n?(\N+)</p>
+     ~<h$2>\U$1\E<br />&nbsp;\U$3\E</h$2>~gix;
+    s~<p\salign="center">((Subseção|Seção)\N+)</p>
+      ((?:\n<p\N*>(?:\(\N+\)</p>))*)\n
+      <p\salign="center">(\N+)</p>
+      ((?:\n<p\N*>(?:\(\N+\)</p>))*)
+     ~<h$2>$1<br />&nbsp;$4</h$2>$3$5~gix;
+    s~<p\salign="center">((CAPÍTULO|TÍTULO)\N+)</p>
+      ((?:\n<p\N*>(?:\(\N+\)</p>))*)\n
+      <p\salign="center">(\N+)</p>
+      ((?:\n<p\N*>(?:\(\N+\)</p>))*)
+     ~<h$2>\U$1\E<br />&nbsp;\U$4\E</h$2>$3$5~gix;
+    s~<(/?)hSubseção>~<$1h5>~gi;
+    s~<(/?)hSeção>~<$1h4>~gi;
+    s~<(/?)hCAPÍTULO>~<$1h3>~gi;
+    s~<(/?)hTÍTULO>~<$1h2>~gi;
+
+    # disposições iniciais também são headings "h2"
+    s~<p\salign="center">(DISPOSIÇÕES\N+)</p>((?:\n<p\N*>(?:\(\N+\)))*)
+     ~<h2>$1</h2>$2~gix;
+
+    # parágrafos centralizados totalmente entre parênteses são observações
+    s~<p(?: align="center")?>(\(.*\))~<p obs>$1~g;
+
+    # blocos entre aspas "inteligentes" normalmente estão dentro de observações
+    # de dispositivos revogados; formate-se-lhes adequadamente
+    1 while
+      s~“([^”]+)</p>\n<p[^>]*>([^”]+)”~“$1<br />\n$2”~s;
+    s~<p>(Dispositivo revogado:)</p>\n<p>(.*?)</p>~<p obs>$1<br />$2</p>~gs;
+
+    # remove outras formatações
+    s~^<p style=".*?">~<p>~gm;
+
+    # coloca a formatações em artigos
+    s~<p>Art~<p i0>Art~g;
+
+    # últimas limpezas
+    s~<p i0>~<p class="caput">~g;
+    s~<p obs>~<p class="obs">~g;
+
+# os headings têm que ter um "heading_id" para geração da tabela de conteúdo
+# (índice do livro)
+    my $heading_id = 1;
+    s~<(h\d)>~<$1 id="heading_id_@{[++$heading_id]}">~g;
+}
+
+cria_diretorio_trabalho DIR_TRABALHO;
+processa_arquivo \&transformacao_html_almg_e_planalto,
+  es => Estatuto => URI_ESTATUTO,
+  "Estatuto do Servidor do Estado de Minas Gerais";
+processa_arquivo \&transformacao_html_almg_e_planalto,
+  ri => Regimento => URI_REGIMENTO,
+  "Regimento Interno da Assembleia Legislativa do Estado de Minas Gerais";
+processa_arquivo \&transformacao_html_almg_e_planalto,
+  ce => ConstMG => URI_CONSTITUICAO_MG,
+  "Constituição do Estado de Minas Gerais - 1989";
+processa_arquivo \&transformacao_html_almg_e_planalto,
+  cf => ConstBR => URI_CONSTITUICAO_FEDERAL,
+  "Constituição da República Federativa do Brasil";
+
+__END__
+
