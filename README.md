@@ -4,14 +4,10 @@ legislação](http://www.almg.gov.br/consulte/legislacao/index.html),
 quatro livros eletrônicos em formato PDF (com algumas variações no
 conteúdo):
 
-1.  [A Constituição Federal de
-    1988](http://www.planalto.gov.br/ccivil_03/constituicao/ConstituicaoCompilado.htm);
-2.  [<http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=CON&num=1989&comp>=&ano=1989&texto=consolidado\#texto
-    A Constituição Estadual de 1989];
-3.  [<http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=LEI&num=869&comp>=&ano=1952&texto=consolidado\#texto
-    O Estatuto do Servidor Público de MG];
-4.  [<http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=RAL&num=5176&comp>=&ano=1997&texto=consolidado\#texto
-    O Regimento Interno da ALMG].
+1.  [A Constituição Federal de 1988](http://www.planalto.gov.br/ccivil_03/constituicao/ConstituicaoCompilado.htm);
+2.  [A Constituição Estadual de 1989](<http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=CON&num=1989&comp>=&ano=1989&texto=consolidado\#texto);
+3.  [O Estatuto do Servidor Público de MG](<http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=LEI&num=869&comp>=&ano=1952&texto=consolidado\#texto);
+4.  [O Regimento Interno da ALMG](<http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=RAL&num=5176&comp>=&ano=1997&texto=consolidado\#texto).
 
 Entretanto, verificou-se que o formato PDF não é o mais adequado para os
 atuais dispositivos móveis como *smartphones*, *tablets*, e leitores de
