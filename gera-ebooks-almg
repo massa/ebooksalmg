@@ -22,7 +22,7 @@ input-encoding: utf8
 CONFIG_TIDY
 
 sub wget(@) {
-    system tsocks => wget => @_;
+    system wget => @_;
 }
 
 sub tidy(@) {
@@ -69,13 +69,15 @@ sub roda_transformacao_no_arquivo($$@) {
 # usa a função passada "funcao_transformacao" para fazer outras modificações no HTML
 # passa o html gerado para o programa "ebook-convert" do calibre para gerar o EPUB e o MOBI
 
-sub processa_arquivo(&$$$$) {
-    my ( $func, $name, $cover, $uri, $title ) = @_;
+sub processa_arquivo(&$$$$;$) {
+    my ( $func, $name, $cover, $uri, $title, $proxy ) = @_;
+    delete $ENV{http_proxy};
+    $ENV{http_proxy} = $proxy if $proxy;
     wget -q => -O => "$name.html" => $uri;
     tidy "$name.html";
     roda_transformacao_no_arquivo "$name.html", $func, $title, $uri;
-    convert "$name.html", "$name.$_",
-      '--cover' => "/home/h/Cloud/Temp/ebooks-almg/$cover.png"
+    convert "$name.html", "$name.$_", '--language', 'pt-BR',
+      '--cover' => "$ENV{HOME}/ebooksalmg/$cover.png"
       for qw[epub mobi];
 }
 
@@ -242,7 +244,8 @@ processa_arquivo \&transformacao_html_almg_e_planalto,
   "Constituição do Estado de Minas Gerais - 1989";
 processa_arquivo \&transformacao_html_almg_e_planalto,
   cf => ConstBR => URI_CONSTITUICAO_FEDERAL,
-  "Constituição da República Federativa do Brasil";
+  "Constituição da República Federativa do Brasil",
+  "http://proxy.almg.uucp:3128/";
 
 __END__
 
