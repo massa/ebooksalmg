@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
 use massa;
+use scriptname;
 
 use constant DIR_TRABALHO => '/tmp/work';
 use constant URI_ESTATUTO =>
@@ -77,7 +78,7 @@ sub processa_arquivo(&$$$$;$) {
     tidy "$name.html";
     roda_transformacao_no_arquivo "$name.html", $func, $title, $uri;
     convert "$name.html", "$name.$_", '--language', 'pt-BR',
-      '--cover' => "$ENV{HOME}/ebooksalmg/$cover.png"
+      '--cover' => "@{[scriptname::mydir]}/$cover.png"
       for qw[epub mobi];
 }
 
