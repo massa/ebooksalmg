@@ -56,11 +56,11 @@ sub cria_diretorio_trabalho($) {
 sub roda_transformacao_no_arquivo($$@) {
     my $file = shift;
     my $func = shift;
-    open my $f, '<', $file;
+    open my $f, '<:utf8', $file;
     local $/;
     local $_ = <$f>;
     $func->(@_);
-    open $f, '>', $file;
+    open $f, '>:utf8', $file;
     print $f $_
 }
 
@@ -233,6 +233,10 @@ p.caput { margin-left: 0.25em; }
     s~<(h\d)>~<$1 id="heading_id_@{[++$heading_id]}">~g;
 }
 
+my @proxy;
+@proxy = ("http://proxy.almg.uucp:3128/")
+  unless system ping => -c => 1 => 'proxy.almg.uucp';
+
 cria_diretorio_trabalho DIR_TRABALHO;
 processa_arquivo \&transformacao_html_almg_e_planalto,
   es => Estatuto => URI_ESTATUTO,
@@ -246,7 +250,7 @@ processa_arquivo \&transformacao_html_almg_e_planalto,
 processa_arquivo \&transformacao_html_almg_e_planalto,
   cf => ConstBR => URI_CONSTITUICAO_FEDERAL,
   "Constituição da República Federativa do Brasil",
-  "http://proxy.almg.uucp:3128/";
+  @proxy;
 
 __END__
 
