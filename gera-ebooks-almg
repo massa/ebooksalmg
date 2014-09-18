@@ -83,13 +83,10 @@ sub roda_transformacao_no_arquivo($$@) {
 # passa o html gerado para o programa "ebook-convert" do calibre para gerar o EPUB e o MOBI
 
 sub processa_arquivo(&$$$$;$) {
-    my ( $func, $name, $cover, $uri, $title, $proxy ) = @_;
-    #delete $ENV{http_proxy};
-    #$ENV{http_proxy} = $proxy if $proxy;
+    my ( $func, $name, $cover, $uri, $title ) = @_;
     wget -q => -O => "$name.html" => $uri;
     tidy "$name.html";
     roda_transformacao_no_arquivo "$name.html", $func, $title, $uri;
-return;
     convert "$name.html", "$name.$_", '--language', 'pt-BR',
       '--cover' => "@{[scriptname::mydir]}/$cover.png"
       for qw[epub mobi];
@@ -246,12 +243,7 @@ p.caput { margin-left: 0.25em; }
     s~<(h\d)>~<$1 id="heading_id_@{[++$heading_id]}">~g;
 }
 
-my @proxy;
-@proxy = ("http://proxy.almg.uucp:3128/")
-;#unless system ping => -c => 1 => 'proxy.almg.uucp';
-
 cria_diretorio_trabalho;
-if(0){
 processa_arquivo \&transformacao_html_almg_e_planalto,
   es => Estatuto => URI_ESTATUTO,
   "Estatuto do Servidor do Estado de Minas Gerais";
@@ -261,11 +253,9 @@ processa_arquivo \&transformacao_html_almg_e_planalto,
 processa_arquivo \&transformacao_html_almg_e_planalto,
   ce => ConstMG => URI_CONSTITUICAO_MG,
   "Constituição do Estado de Minas Gerais - 1989";
-  }
 processa_arquivo \&transformacao_html_almg_e_planalto,
   cf => ConstBR => URI_CONSTITUICAO_FEDERAL,
-  "Constituição da República Federativa do Brasil",
-  @proxy;
+  "Constituição da República Federativa do Brasil";
 
 __END__
 
