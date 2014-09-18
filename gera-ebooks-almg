@@ -3,7 +3,8 @@
 use massa;
 use scriptname;
 
-use constant DIR_TRABALHO => '/tmp/work';
+use open ':utf8';
+
 use constant URI_ESTATUTO =>
   'http://www.almg.gov.br/consulte/legislacao/completa/completa-nova-min.html?tipo=LEI&num=869&comp=&ano=1952&texto=consolidado#texto';
 use constant URI_REGIMENTO =>
@@ -30,7 +31,7 @@ sub tidy(@) {
     unless ( -f 'tidy.cfg' ) { open my $tcfg, '>', 'tidy.cfg'; print $tcfg CONFIG_TIDY; }
     # se a codificação do arquivo não for latin1 (ISO-8859-1)
     # altera o "input-encoding"
-    unshift @_, '--input-encoding', 'latin1' if qx/file $_[0]/ =~ /ISO-8859/;
+    unshift @_, '--input-encoding', 'latin1' if $_[0] =~ /cf.html/;
     system tidy => -config => 'tidy.cfg' => @_
 }
 
@@ -41,10 +42,21 @@ sub convert(@) {
       '--level3-toc' => '//h:h4' => -v             =>
 }
 
-sub cria_diretorio_trabalho($) {
-    system rm => -vrf => $_[0];
-    mkdir $_[0];
-    chdir $_[0]
+sub cria_diretorio_trabalho() {
+    if( -d '/tmp' ) {
+        local $_ = '/tmp/work';
+        system rm => -vrf => $_;
+        mkdir $_;
+        chdir $_
+    } else {
+        local $_ = -d '\\temp' ? '\\temp\\work' : 'work';
+        system rd => '/q' => '/s' => $_;
+        mkdir $_;
+        system xcopy => '/y' => 'tidy.exe' => $_;
+        system xcopy => '/y' => 'wget.exe' => $_;
+        system xcopy => '/y' => '*.dll' => $_;
+        chdir $_
+    }
 }
 
 # roda_transformacao_no_arquivo(nome_arquivo, funcao_transformacao, outros_parametros):
@@ -72,11 +84,12 @@ sub roda_transformacao_no_arquivo($$@) {
 
 sub processa_arquivo(&$$$$;$) {
     my ( $func, $name, $cover, $uri, $title, $proxy ) = @_;
-    delete $ENV{http_proxy};
-    $ENV{http_proxy} = $proxy if $proxy;
+    #delete $ENV{http_proxy};
+    #$ENV{http_proxy} = $proxy if $proxy;
     wget -q => -O => "$name.html" => $uri;
     tidy "$name.html";
     roda_transformacao_no_arquivo "$name.html", $func, $title, $uri;
+return;
     convert "$name.html", "$name.$_", '--language', 'pt-BR',
       '--cover' => "@{[scriptname::mydir]}/$cover.png"
       for qw[epub mobi];
@@ -118,7 +131,7 @@ sub transformacao_html_almg_e_planalto($$) {
     # prefixa o caminho da URI de origem nos links que não têm "http/https"
     s~<a(?= href="https?:)~<AX~g;
     s~<a href="\K~$uri~g;
-    s~<AX(?=href)~a ~g;
+    s~<AX *(?=href)~a ~g;
 
     # deleta formatações desnecessárias
     s~ class="western"~~g;
@@ -235,9 +248,10 @@ p.caput { margin-left: 0.25em; }
 
 my @proxy;
 @proxy = ("http://proxy.almg.uucp:3128/")
-  unless system ping => -c => 1 => 'proxy.almg.uucp';
+;#unless system ping => -c => 1 => 'proxy.almg.uucp';
 
-cria_diretorio_trabalho DIR_TRABALHO;
+cria_diretorio_trabalho;
+if(0){
 processa_arquivo \&transformacao_html_almg_e_planalto,
   es => Estatuto => URI_ESTATUTO,
   "Estatuto do Servidor do Estado de Minas Gerais";
@@ -247,6 +261,7 @@ processa_arquivo \&transformacao_html_almg_e_planalto,
 processa_arquivo \&transformacao_html_almg_e_planalto,
   ce => ConstMG => URI_CONSTITUICAO_MG,
   "Constituição do Estado de Minas Gerais - 1989";
+  }
 processa_arquivo \&transformacao_html_almg_e_planalto,
   cf => ConstBR => URI_CONSTITUICAO_FEDERAL,
   "Constituição da República Federativa do Brasil",

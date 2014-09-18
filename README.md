@@ -45,7 +45,11 @@ Linux, além da instalação dos seguintes pacotes de software:
 É feito extenso uso de expressões regulares para processar cada arquivo
 HTML.
 
-O processamento de
-customização do HTML é feito pelas expressões regulares que se encontram
-na função `transformacao_html_almg_e_planalto`.
+Está sendo desenvolvida uma versão para ser utilizada no Windows,
+utilizando o Strawberry Perl e as versões windows do Calibre, wget e
+tidy.
+
+O processamento de customização do HTML é feito pelas expressões
+regulares que se encontram na função
+`transformacao_html_almg_e_planalto`.
 
