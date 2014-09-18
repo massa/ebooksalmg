@@ -16,7 +16,7 @@ use constant URI_CONSTITUICAO_FEDERAL =>
 use constant CONFIG_TIDY => <<'CONFIG_TIDY';
 write-back: yes
 error-file: tidy.log
-indent: auto
+indent: no
 wrap: 0
 output-xhtml: yes
 output-encoding: utf8
